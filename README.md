@@ -1,132 +1,80 @@
-# Discord Media Bot (Go)
+# Discord Media Bot — Original Go Implementation
 
-This project is a Go-based Discord bot that fetches and posts media from Scrolller and Reddit subreddits using GraphQL queries.  
-It provides text-based commands to retrieve random images or videos and is restricted to NSFW Discord channels.
+This repository contains the original Go implementation of a Discord bot that queries Scrolller's GraphQL API and posts selected media in age-restricted Discord channels.
 
-This repository contains the original Go implementation, later rewritten in Python for improved maintainability and modern Discord slash commands.  
-Both versions remain available for reference.
+It is preserved as an **archived reference implementation**. The later Python rewrite, which introduced slash commands and environment-based token loading, is available in [`discord-media-bot-python`](https://github.com/ycallerisa/discord-media-bot-python).
 
-Important: This bot retrieves NSFW content and must only be used in Discord channels explicitly marked as NSFW. Always respect Discord’s Terms of Service.
+> Content warning: the bot is designed to retrieve adult media. It must only be used in appropriately age-restricted channels and in compliance with Discord's rules and applicable law.
 
-## Features
+## Implemented capabilities
 
-- Text-based commands such as:
-  - .pr0n – fetch random media from discovered NSFW subreddits  
-  - .pr0n vid – fetch a high-quality video  
-  - .pr0n [subreddit] – fetch media from a specific subreddit  
-  - .pr0n help – show available commands  
-  - .pr0n listnsfw – share the NSFW subreddit index  
-- Integration with Scrolller’s GraphQL API:
-  - DiscoverSubreddits query  
-  - SubredditQuery for media retrieval  
-- Media filtering:
-  - Prefer high-resolution 1080-width images  
-  - Video selection avoiding unwanted hosts (static, redgifs, etc.)  
-- Recursive retry logic when a subreddit contains no valid media  
-- Basic error handling for failed API calls  
-- Full NSFW channel validation before posting media  
+- Discord event handling through `discordgo`;
+- text-command routing;
+- GraphQL requests to discover subreddits and retrieve their posts;
+- JSON decoding into typed Go structures;
+- selection of 1080-pixel image sources;
+- selection of video sources while excluding selected hosts;
+- validation of the Discord channel's `NSFW` flag before media is posted;
+- bounded recursive retry when an API response contains no suitable media;
+- graceful shutdown on operating-system signals.
 
-## Tech Stack
+## Commands
 
-- Language: Go  
-- Discord Framework: discordgo  
-- HTTP Client: net/http  
-- JSON Handling: encoding/json  
-- OS / signals: program listens for SIGINT, SIGTERM for graceful shutdown
+| Command | Behavior |
+| --- | --- |
+| `.pr0n` | Retrieve random media from discovered communities |
+| `.pr0n vid` | Prefer a random video source |
+| `.pr0n <subreddit>` | Retrieve media from a specific community |
+| `.pr0n listnsfw` | Display the configured community index link |
+| `.pr0n help` | Display the available commands |
+| `.pr0n --version` | Display the application version |
 
-## Getting Started
+## Repository layout
 
-### Prerequisites
+| Path | Responsibility |
+| --- | --- |
+| `application.go` | Discord session, GraphQL models, API calls and command handling |
+| `Makefile` | Original Linux build and historical deployment commands |
+| `.github/workflows/deploy.yml` | Historical deployment workflow |
 
-- Go 1.18 or newer  
-- A Discord application and bot token  
-- A Discord server where you can test the bot
+## Local build
 
-### Installation
+Requirements:
 
-1. Clone the repository
+- Go 1.18 or later;
+- a Discord application and bot token;
+- a test server containing an age-restricted channel.
 
-    git clone https://github.com/kathiouchka/discord-media-bot-golang.git  
-    cd discord-media-bot-golang
+Clone and build:
 
-2. Build the application
+```bash
+git clone https://github.com/ycallerisa/discord-media-bot-golang.git
+cd discord-media-bot-golang
+go mod download
+go build -o media-bot .
+```
 
-    go build -o discord-media-bot-golang
+The legacy implementation accepts the Discord token through the `-t` flag:
 
-3. Run the bot
+```bash
+./media-bot -t "DISCORD_BOT_TOKEN"
+```
 
-    ./discord-media-bot-golang -t YOUR_DISCORD_BOT_TOKEN
+Passing secrets through command-line arguments can expose them to local process inspection. Use this command only in an isolated development environment. A maintained implementation should load the token from an environment variable or secret manager.
 
-The bot will connect to Discord and begin listening for text commands in channels.
+## Security and operational limitations
 
-## Usage
+- the Discord token is accepted as a command-line argument;
+- HTTP requests use the default client without an explicit timeout;
+- some network-error paths may continue with a nil response;
+- API responses other than HTTP 200 receive limited handling;
+- rate limiting and per-user abuse controls are not implemented;
+- the historical deployment configuration contains environment-specific host and key names;
+- no automated tests or dependency scanning workflow is included.
 
-Commands must be typed in a channel marked as NSFW.
+The channel restriction is a useful safety control, but it is not a substitute for authentication, rate limiting, observability and robust failure handling.
 
-### .pr0n  
-Fetch random NSFW media sourced from Scrolller’s DiscoverSubreddits API.
+## Why the project is archived
 
-### .pr0n vid  
-Fetch a video (mp4) while filtering out unwanted hosts.
+The bot was later rewritten in Python to simplify iteration and replace text commands with Discord slash commands. Keeping both versions makes the migration decisions visible: typed Go models and explicit event handling in the original version, followed by a smaller command-oriented implementation in Python.
 
-### .pr0n [subreddit]  
-Fetch an image or video from the specified subreddit, depending on available media.
-
-### .pr0n help  
-Show all available commands.
-
-### .pr0n listnsfw  
-Share the NSFW411 index link, but only in NSFW channels.
-
-### .pr0n contact  
-Show contact information for the bot author.
-
-If the command is used in a non-NSFW channel, the bot refuses to post media.
-
-## Internals
-
-The Go implementation uses:
-
-- Two GraphQL queries embedded as strings  
-- Functions getRandData and getSubData to retrieve media:
-  - POST requests with custom headers  
-  - JSON unmarshalling into strongly typed structs  
-- Filtering logic:
-  - Only keep media where width == 1080  
-  - Videos must end with .mp4 and avoid static or redgifs hosts  
-- Recursive retry when a subreddit responds with zero valid media  
-- Random selection from the filtered list  
-- A messageCreate handler that:
-  - Parses commands  
-  - Detects subreddit requests with regex  
-  - Validates NSFW status  
-  - Sends media accordingly  
-
-The program also registers signal handlers (SIGINT, SIGTERM, os.Interrupt) to properly close the Discord session on shutdown.
-
-## Limitations
-
-- Text-command only (no slash commands)  
-- No concurrency optimization  
-- No advanced error messaging  
-- No rate-limit handling  
-- No configuration file  
-- Hard-coded GraphQL queries  
-- No CI/CD or tests in this version
-
-The Python rewrite addresses several of these points.
-
-## Relationship to the Python Version
-
-A newer Python rewrite of this bot is available:  
-[https://github.com/kathiouchka/pr0nbot_python](https://github.com/kathiouchka/discord-media-bot-python)
-
-The Go version remains:
-- A reference for the original architecture  
-- A demonstration of Go, JSON unmarshalling, and Discord bot design  
-- A functional example of a GraphQL consumer written in Go
-
-## Disclaimer
-
-This bot retrieves NSFW content and must only be used in compliance with Discord’s Terms of Service and local regulations.  
-The author assumes no responsibility for misuse or violations.
